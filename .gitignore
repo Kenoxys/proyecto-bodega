@@ -19,6 +19,9 @@ yarn-error.log*
 *.sqlite
 *.sqlite3
 
+# local scripts / launchers
+scripts/
+
 # macOS-specific files
 .DS_Store
 
