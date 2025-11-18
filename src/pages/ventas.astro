@@ -1,0 +1,396 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Resumen de Ventas">
+  <div class="max-w-7xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Resumen de Ventas</h2>
+    
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="flex flex-col md:flex-row gap-4 mb-6">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
+          <input type="date" id="fecha-inicio" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Fin</label>
+          <input type="date" id="fecha-fin" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex items-end">
+          <button 
+            id="btn-buscar"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Buscar
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 mb-6">
+        <button 
+          id="btn-por-dia"
+          class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+        >
+          Por Día
+        </button>
+        <button 
+          id="btn-por-mes"
+          class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+        >
+          Por Mes
+        </button>
+        <button 
+          id="btn-por-ano"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+        >
+          Por Año
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h3 class="text-xl font-semibold mb-4" id="titulo-resumen">Resumen Diario</h3>
+      
+      <div id="resumen-total" class="mb-6 p-4 bg-blue-50 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <div class="text-sm text-gray-600">Total de Ventas</div>
+            <div class="text-2xl font-bold text-gray-800" id="total-ventas">0</div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-600">Total en Bolívares</div>
+            <div class="text-2xl font-bold text-green-600" id="total-bs">0.00 Bs</div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-600">Total en Dólares</div>
+            <div class="text-2xl font-bold text-blue-600" id="total-usd">0.00 USD</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100" id="thead-resumen">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Ventas</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-resumen" class="bg-white divide-y divide-gray-200">
+            <tr>
+              <td colspan="4" class="px-4 py-8 text-center text-gray-500">Seleccione un rango de fechas</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h3 class="text-xl font-semibold mb-4">Detalle de Ventas</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cliente</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Teléfono</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-ventas" class="bg-white divide-y divide-gray-200">
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-gray-500">Seleccione un rango de fechas</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    function obtenerFechas() {
+      const hoy = new Date();
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+      
+      document.getElementById('fecha-inicio').value = inicioMes.toISOString().split('T')[0];
+      document.getElementById('fecha-fin').value = finMes.toISOString().split('T')[0];
+    }
+
+    async function cargarResumen() {
+      const fechaInicio = document.getElementById('fecha-inicio').value;
+      const fechaFin = document.getElementById('fecha-fin').value;
+
+      if (!fechaInicio || !fechaFin) {
+        alert('Seleccione ambas fechas');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/ventas?tipo=resumen&fecha_inicio=${fechaInicio}T00:00:00&fecha_fin=${fechaFin}T23:59:59`);
+        const result = await res.json();
+        
+        if (result.success) {
+          renderizarResumen(result.data);
+          cargarVentas(fechaInicio, fechaFin);
+        } else {
+          console.error('Error en la respuesta:', result.error);
+          alert('Error al cargar resumen: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error cargando resumen:', error);
+        alert('Error al cargar resumen. Ver consola para más detalles.');
+      }
+    }
+
+    async function cargarPorDia() {
+      const fechaInicio = document.getElementById('fecha-inicio').value;
+      const fechaFin = document.getElementById('fecha-fin').value;
+
+      if (!fechaInicio || !fechaFin) {
+        alert('Seleccione ambas fechas');
+        return;
+      }
+
+      document.getElementById('titulo-resumen').textContent = 'Resumen Diario';
+      const thead = document.getElementById('thead-resumen');
+      thead.innerHTML = `
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Ventas</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
+        </tr>
+      `;
+
+      try {
+        const res = await fetch(`/api/ventas?tipo=resumen&fecha_inicio=${fechaInicio}T00:00:00&fecha_fin=${fechaFin}T23:59:59`);
+        const result = await res.json();
+        if (result.success) {
+          renderizarResumen(result.data);
+          cargarVentas(fechaInicio, fechaFin);
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al cargar datos');
+      }
+    }
+
+    async function cargarPorMes() {
+      const ano = new Date().getFullYear();
+      document.getElementById('titulo-resumen').textContent = `Resumen Mensual - ${ano}`;
+      const thead = document.getElementById('thead-resumen');
+      thead.innerHTML = `
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Mes</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Ventas</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
+        </tr>
+      `;
+
+      try {
+        const res = await fetch(`/api/ventas?tipo=mensual&ano=${ano}`);
+        const result = await res.json();
+        if (result.success) {
+          renderizarResumenMensual(result.data);
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al cargar datos');
+      }
+    }
+
+    async function cargarPorAno() {
+      document.getElementById('titulo-resumen').textContent = 'Resumen Anual';
+      const thead = document.getElementById('thead-resumen');
+      thead.innerHTML = `
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Año</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Ventas</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
+        </tr>
+      `;
+
+      try {
+        const res = await fetch('/api/ventas?tipo=anual');
+        const result = await res.json();
+        if (result.success) {
+          renderizarResumenAnual(result.data);
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al cargar datos');
+      }
+    }
+
+    function renderizarResumen(data) {
+      const tbody = document.getElementById('tabla-resumen');
+      
+      if (!data || !data.ventas) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Error al cargar datos</td></tr>';
+        document.getElementById('total-ventas').textContent = '0';
+        document.getElementById('total-bs').textContent = '0.00 Bs';
+        document.getElementById('total-usd').textContent = '0.00 USD';
+        return;
+      }
+      
+      const { ventas, total } = data;
+
+      if (!ventas || ventas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No hay ventas en este período</td></tr>';
+        document.getElementById('total-ventas').textContent = '0';
+        document.getElementById('total-bs').textContent = '0.00 Bs';
+        document.getElementById('total-usd').textContent = '0.00 USD';
+        return;
+      }
+
+      tbody.innerHTML = ventas.map(v => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm">${new Date(v.fecha + 'T00:00:00').toLocaleDateString('es-VE')}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">${v.total_ventas}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${parseFloat(v.total_bs || 0).toFixed(2)} Bs</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">$${parseFloat(v.total_usd || 0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      const totalVentas = total?.total_ventas || 0;
+      const totalBs = total?.total_bs || 0;
+      const totalUsd = total?.total_usd || 0;
+      
+      document.getElementById('total-ventas').textContent = totalVentas;
+      document.getElementById('total-bs').textContent = parseFloat(totalBs).toFixed(2) + ' Bs';
+      document.getElementById('total-usd').textContent = '$' + parseFloat(totalUsd).toFixed(2);
+    }
+
+    function renderizarResumenMensual(data) {
+      const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      const tbody = document.getElementById('tabla-resumen');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No hay datos</td></tr>';
+        document.getElementById('total-ventas').textContent = '0';
+        document.getElementById('total-bs').textContent = '0.00 Bs';
+        document.getElementById('total-usd').textContent = '0.00 USD';
+        return;
+      }
+
+      let totalVentas = 0;
+      let totalBs = 0;
+      let totalUsd = 0;
+
+      tbody.innerHTML = data.map(v => {
+        totalVentas += parseInt(v.total_ventas || 0);
+        totalBs += parseFloat(v.total_bs || 0);
+        totalUsd += parseFloat(v.total_usd || 0);
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${meses[parseInt(v.mes) - 1] || v.mes}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">${v.total_ventas || 0}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${parseFloat(v.total_bs || 0).toFixed(2)} Bs</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">$${parseFloat(v.total_usd || 0).toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('total-ventas').textContent = totalVentas;
+      document.getElementById('total-bs').textContent = totalBs.toFixed(2) + ' Bs';
+      document.getElementById('total-usd').textContent = '$' + totalUsd.toFixed(2);
+    }
+
+    function renderizarResumenAnual(data) {
+      const tbody = document.getElementById('tabla-resumen');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No hay datos</td></tr>';
+        document.getElementById('total-ventas').textContent = '0';
+        document.getElementById('total-bs').textContent = '0.00 Bs';
+        document.getElementById('total-usd').textContent = '0.00 USD';
+        return;
+      }
+
+      let totalVentas = 0;
+      let totalBs = 0;
+      let totalUsd = 0;
+
+      tbody.innerHTML = data.map(v => {
+        totalVentas += parseInt(v.total_ventas || 0);
+        totalBs += parseFloat(v.total_bs || 0);
+        totalUsd += parseFloat(v.total_usd || 0);
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${v.ano || '-'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">${v.total_ventas || 0}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${parseFloat(v.total_bs || 0).toFixed(2)} Bs</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">$${parseFloat(v.total_usd || 0).toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('total-ventas').textContent = totalVentas;
+      document.getElementById('total-bs').textContent = totalBs.toFixed(2) + ' Bs';
+      document.getElementById('total-usd').textContent = '$' + totalUsd.toFixed(2);
+    }
+
+    async function cargarVentas(fechaInicio, fechaFin) {
+      try {
+        const res = await fetch(`/api/ventas?fecha_inicio=${fechaInicio}T00:00:00&fecha_fin=${fechaFin}T23:59:59`);
+        const result = await res.json();
+        
+        if (result.success) {
+          const tbody = document.getElementById('tabla-ventas');
+          if (!result.data || result.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No hay ventas</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = result.data.map(v => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 whitespace-nowrap text-sm">${new Date(v.fecha).toLocaleString('es-VE')}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm">${v.cliente_nombre || '-'}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm">${v.cliente_telefono || '-'}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${parseFloat(v.total_bs || 0).toFixed(2)} Bs</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">$${parseFloat(v.total_usd || 0).toFixed(2)}</td>
+            </tr>
+          `).join('');
+        } else {
+          console.error('Error en respuesta:', result.error);
+        }
+      } catch (error) {
+        console.error('Error cargando ventas:', error);
+      }
+    }
+
+    // Inicializar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', inicializar);
+    } else {
+      inicializar();
+    }
+    
+    function inicializar() {
+      // Event listeners
+      document.getElementById('btn-buscar').addEventListener('click', cargarResumen);
+      document.getElementById('btn-por-dia').addEventListener('click', cargarPorDia);
+      document.getElementById('btn-por-mes').addEventListener('click', cargarPorMes);
+      document.getElementById('btn-por-ano').addEventListener('click', cargarPorAno);
+      
+      // Inicializar fechas
+      obtenerFechas();
+      
+      // Cargar resumen del mes actual automáticamente
+      cargarResumen();
+    }
+  </script>
+</Layout>
+

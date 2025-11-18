@@ -1,0 +1,21 @@
+{
+  "name": "proyecto-bodega",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^4.0.0",
+    "@astrojs/node": "^8.0.0",
+    "@astrojs/tailwind": "^5.0.0",
+    "better-sqlite3": "^9.2.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
+

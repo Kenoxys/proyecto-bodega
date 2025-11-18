@@ -1,0 +1,45 @@
+---
+export interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Sistema de gestión de bodega" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class="bg-gray-50 min-h-screen flex flex-col">
+    <nav class="bg-blue-600 text-white shadow-lg">
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+          <h1 class="text-2xl font-bold">Sistema de Bodega</h1>
+          <div class="flex flex-wrap gap-2 md:gap-4">
+            <a href="/" class="px-4 py-2 rounded hover:bg-blue-700 transition">Inventario</a>
+            <a href="/factura" class="px-4 py-2 rounded hover:bg-blue-700 transition">Factura</a>
+            <a href="/ventas" class="px-4 py-2 rounded hover:bg-blue-700 transition">Ventas</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main class="container mx-auto px-4 py-8 flex-grow">
+      <slot />
+    </main>
+    <footer class="bg-gray-800 text-white text-center py-4 mt-auto">
+      <p>&copy; 2024 Sistema de Bodega</p>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  html {
+    font-family: system-ui, sans-serif;
+  }
+</style>
+
