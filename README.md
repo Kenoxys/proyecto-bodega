@@ -7,7 +7,8 @@ Sistema web para gestión de inventario, facturación y reportes de ventas desar
 - **Inventario**: Gestión de productos con código, nombre, cantidad y precios en USD y Bs
 - **Actualización de Tasa de Dólar**: Sistema para actualizar el valor del dólar y recalcular todos los precios automáticamente
 - **Facturación**: Creación de facturas con datos del cliente y productos del inventario
-- **Resumen de Ventas**: Reportes por día, mes y año con totales en bolívares y dólares
+- **Clientes**: Registro automático por cédula, autocompletado y reutilización en compras futuras
+- **Resumen de Ventas**: Reportes por día, mes y año con totales en bolívares y dólares, con clientes vinculados
 
 ## Instalación
 
@@ -51,7 +52,8 @@ La base de datos SQLite se crea automáticamente en `bodega.db` con las siguient
 - Actualizar tasa de dólar para recalcular todos los precios
 
 ### Facturación
-- Ingresar datos del cliente
+- Registrar cédula del cliente (obligatoria). Si existe, se autocompleta nombre/dirección/teléfono.
+- Los clientes nuevos se guardan automáticamente al procesar la factura
 - Agregar productos del inventario
 - El sistema calcula automáticamente los totales
 - Al procesar, se actualiza el stock del inventario
@@ -59,5 +61,5 @@ La base de datos SQLite se crea automáticamente en `bodega.db` con las siguient
 ### Ventas
 - Ver resumen de ventas por día, mes o año
 - Filtrar por rango de fechas
-- Ver totales en bolívares y dólares
+- Ver totales en bolívares y dólares, junto a la cédula del cliente en cada venta
 

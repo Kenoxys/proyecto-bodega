@@ -1,11 +1,23 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { DateTime } from 'luxon';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const db = new Database(join(__dirname, '../../bodega.db'));
+
+function ensureColumnExists(table, column, definition) {
+  const info = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!info.some((col) => col.name === column)) {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  }
+}
+
+function getCaracasTimestamp() {
+  return DateTime.now().setZone('America/Caracas').toISO({ suppressMilliseconds: true });
+}
 
 // Inicializar tablas
 db.exec(`
@@ -28,15 +40,18 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS clientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cedula TEXT UNIQUE NOT NULL,
     nombre TEXT NOT NULL,
     direccion TEXT,
     telefono TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS ventas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cliente_id INTEGER,
+    cliente_cedula TEXT,
     cliente_nombre TEXT NOT NULL,
     cliente_direccion TEXT,
     cliente_telefono TEXT,
@@ -65,6 +80,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha);
   CREATE INDEX IF NOT EXISTS idx_venta_items_venta ON venta_items(venta_id);
 `);
+
+// Ajustes de columnas para bases existentes
+ensureColumnExists('clientes', 'cedula', 'TEXT');
+ensureColumnExists('clientes', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_cedula ON clientes(cedula) WHERE cedula IS NOT NULL').run();
+ensureColumnExists('ventas', 'cliente_cedula', 'TEXT');
 
 // Inicializar tasa de dólar si no existe
 const tasaExistente = db.prepare('SELECT value FROM config WHERE key = ?').get('tasa_dolar');
@@ -143,14 +164,53 @@ export function actualizarCantidadProducto(id, cantidad) {
   return obtenerProductoPorId(id);
 }
 
+export function obtenerClientePorCedula(cedula) {
+  if (!cedula) return null;
+  return db.prepare('SELECT * FROM clientes WHERE cedula = ?').get(cedula);
+}
+
+export function guardarCliente({ cedula, nombre, direccion, telefono }) {
+  if (!cedula) {
+    throw new Error('La cédula del cliente es obligatoria');
+  }
+
+  const existente = obtenerClientePorCedula(cedula);
+  if (existente) {
+    db.prepare(`
+      UPDATE clientes
+      SET nombre = ?, direccion = ?, telefono = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      nombre || existente.nombre,
+      direccion ?? existente.direccion,
+      telefono ?? existente.telefono,
+      existente.id
+    );
+    return obtenerClientePorCedula(cedula);
+  }
+
+  const result = db.prepare(`
+    INSERT INTO clientes (cedula, nombre, direccion, telefono)
+    VALUES (?, ?, ?, ?)
+  `).run(cedula, nombre, direccion || '', telefono || '');
+
+  return db.prepare('SELECT * FROM clientes WHERE id = ?').get(result.lastInsertRowid);
+}
+
 export function crearVenta(cliente, items) {
+  if (!cliente?.cedula) {
+    throw new Error('La cédula del cliente es obligatoria');
+  }
+
+  const clienteRegistrado = guardarCliente(cliente);
   const tasa = obtenerTasaDolar();
   let totalUsd = 0;
   let totalBs = 0;
+  const fechaActual = getCaracasTimestamp();
   
   const ventaStmt = db.prepare(`
-    INSERT INTO ventas (cliente_nombre, cliente_direccion, cliente_telefono, total_bs, total_usd, tasa_dolar)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO ventas (cliente_id, cliente_cedula, cliente_nombre, cliente_direccion, cliente_telefono, total_bs, total_usd, tasa_dolar, fecha)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   const itemStmt = db.prepare(`
@@ -178,12 +238,15 @@ export function crearVenta(cliente, items) {
     
     // Crear venta
     const ventaResult = ventaStmt.run(
-      cliente.nombre,
-      cliente.direccion || '',
-      cliente.telefono || '',
+      clienteRegistrado?.id || null,
+      clienteRegistrado?.cedula || cliente.cedula,
+      clienteRegistrado?.nombre || cliente.nombre,
+      cliente.direccion ?? clienteRegistrado?.direccion ?? '',
+      cliente.telefono ?? clienteRegistrado?.telefono ?? '',
       totalBs.toFixed(2),
       totalUsd.toFixed(2),
-      tasa
+      tasa,
+      fechaActual
     );
     
     const ventaId = ventaResult.lastInsertRowid;

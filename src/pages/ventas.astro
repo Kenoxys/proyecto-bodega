@@ -95,6 +95,7 @@ import Layout from '../layouts/Layout.astro';
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cliente</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cédula</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Teléfono</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Bs</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total USD</th>
@@ -102,7 +103,7 @@ import Layout from '../layouts/Layout.astro';
           </thead>
           <tbody id="tabla-ventas" class="bg-white divide-y divide-gray-200">
             <tr>
-              <td colspan="5" class="px-4 py-8 text-center text-gray-500">Seleccione un rango de fechas</td>
+              <td colspan="6" class="px-4 py-8 text-center text-gray-500">Seleccione un rango de fechas</td>
             </tr>
           </tbody>
         </table>
@@ -350,7 +351,7 @@ import Layout from '../layouts/Layout.astro';
         if (result.success) {
           const tbody = document.getElementById('tabla-ventas');
           if (!result.data || result.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No hay ventas</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No hay ventas</td></tr>';
             return;
           }
 
@@ -358,6 +359,7 @@ import Layout from '../layouts/Layout.astro';
             <tr class="hover:bg-gray-50">
               <td class="px-4 py-3 whitespace-nowrap text-sm">${new Date(v.fecha).toLocaleString('es-VE')}</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm">${v.cliente_nombre || '-'}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm">${v.cliente_cedula || '-'}</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm">${v.cliente_telefono || '-'}</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${parseFloat(v.total_bs || 0).toFixed(2)} Bs</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">$${parseFloat(v.total_usd || 0).toFixed(2)}</td>

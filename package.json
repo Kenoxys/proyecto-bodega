@@ -12,7 +12,8 @@
     "astro": "^4.0.0",
     "@astrojs/node": "^8.0.0",
     "@astrojs/tailwind": "^5.0.0",
-    "better-sqlite3": "^9.2.2"
+    "better-sqlite3": "^9.2.2",
+    "luxon": "^3.5.0"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.0"

@@ -8,7 +8,12 @@ import Layout from '../layouts/Layout.astro';
     
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h3 class="text-xl font-semibold mb-4">Datos del Cliente</h3>
-      <form id="form-cliente" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <form id="form-cliente" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cédula *</label>
+          <input type="text" id="cliente-cedula" name="cedula" required placeholder="V-12345678" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          <p id="cliente-status" class="text-xs text-gray-500 mt-1"></p>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
           <input type="text" name="nombre" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
@@ -96,6 +101,7 @@ import Layout from '../layouts/Layout.astro';
   <script is:inline>
     let productos = [];
     let itemsFactura = [];
+    let clienteEncontrado = null;
 
     async function cargarProductos() {
       try {
@@ -215,10 +221,20 @@ import Layout from '../layouts/Layout.astro';
       });
     }
 
+    function setEstadoCliente(mensaje = '', tipo = 'info') {
+      const status = document.getElementById('cliente-status');
+      if (!status) return;
+      const color = tipo === 'success' ? 'text-green-600' : tipo === 'error' ? 'text-red-600' : 'text-gray-500';
+      status.className = `text-xs mt-1 ${color}`;
+      status.textContent = mensaje;
+    }
+
     function limpiarFactura() {
       if (confirm('¿Está seguro de limpiar la factura?')) {
         itemsFactura = [];
         document.getElementById('form-cliente').reset();
+        clienteEncontrado = null;
+        setEstadoCliente('');
         renderizarItems();
       }
     }
@@ -226,10 +242,16 @@ import Layout from '../layouts/Layout.astro';
     async function procesarFactura() {
       const formData = new FormData(document.getElementById('form-cliente'));
       const cliente = {
+        cedula: (formData.get('cedula') || '').trim(),
         nombre: formData.get('nombre'),
         direccion: formData.get('direccion') || '',
         telefono: formData.get('telefono') || ''
       };
+
+      if (!cliente.cedula) {
+        alert('Ingrese la cédula del cliente');
+        return;
+      }
 
       if (!cliente.nombre) {
         alert('Ingrese el nombre del cliente');
@@ -284,6 +306,53 @@ import Layout from '../layouts/Layout.astro';
       
       // Cargar productos
       cargarProductos();
+      const cedulaInput = document.getElementById('cliente-cedula');
+      const nombreInput = document.querySelector('#form-cliente [name="nombre"]');
+      const direccionInput = document.querySelector('#form-cliente [name="direccion"]');
+      const telefonoInput = document.querySelector('#form-cliente [name="telefono"]');
+
+      async function buscarClientePorCedula() {
+        const cedula = cedulaInput.value.trim();
+        if (!cedula) {
+          clienteEncontrado = null;
+          nombreInput.value = '';
+          direccionInput.value = '';
+          telefonoInput.value = '';
+          setEstadoCliente('Ingrese la cédula para buscar al cliente', 'info');
+          return;
+        }
+
+        setEstadoCliente('Buscando cliente...', 'info');
+        try {
+          const res = await fetch(`/api/clientes?cedula=${encodeURIComponent(cedula)}`);
+          const data = await res.json();
+          if (data.success && data.data) {
+            clienteEncontrado = data.data;
+            nombreInput.value = data.data.nombre || '';
+            direccionInput.value = data.data.direccion || '';
+            telefonoInput.value = data.data.telefono || '';
+            setEstadoCliente('Cliente encontrado y cargado automáticamente.', 'success');
+          } else {
+            clienteEncontrado = null;
+            setEstadoCliente('Cliente nuevo. Se registrará al procesar la factura.', 'info');
+          }
+        } catch (error) {
+          console.error('Error buscando cliente:', error);
+          setEstadoCliente('No se pudo buscar al cliente. Intente nuevamente.', 'error');
+        }
+      }
+
+      cedulaInput.addEventListener('change', buscarClientePorCedula);
+      cedulaInput.addEventListener('blur', buscarClientePorCedula);
+      cedulaInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          buscarClientePorCedula();
+        }
+      });
+
+      // Mensaje inicial
+      setEstadoCliente('Ingrese la cédula para buscar al cliente.', 'info');
     }
   </script>
 </Layout>

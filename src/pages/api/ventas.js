@@ -5,7 +5,7 @@ export async function POST({ request }) {
     const body = await request.json();
     const { cliente, items } = body;
     
-    if (!cliente || !cliente.nombre || !items || items.length === 0) {
+    if (!cliente || !cliente.cedula || !cliente.nombre || !items || items.length === 0) {
       return new Response(JSON.stringify({ success: false, error: 'Faltan campos requeridos' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
