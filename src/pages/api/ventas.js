@@ -3,7 +3,7 @@ import { crearVenta, obtenerVentasPorFecha, obtenerResumenVentas, obtenerResumen
 export async function POST({ request }) {
   try {
     const body = await request.json();
-    const { cliente, items } = body;
+    const { cliente, items, tipo_pago } = body;
     
     if (!cliente || !cliente.cedula || !cliente.nombre || !items || items.length === 0) {
       return new Response(JSON.stringify({ success: false, error: 'Faltan campos requeridos' }), {
@@ -12,7 +12,7 @@ export async function POST({ request }) {
       });
     }
     
-    const ventaId = crearVenta(cliente, items);
+    const ventaId = crearVenta(cliente, items, tipo_pago || 'contado');
     return new Response(JSON.stringify({ success: true, venta_id: ventaId }), {
       status: 201,
       headers: { 'Content-Type': 'application/json' }

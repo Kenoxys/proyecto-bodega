@@ -59,6 +59,12 @@ db.exec(`
     total_usd REAL NOT NULL,
     tasa_dolar REAL NOT NULL,
     fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    tipo_pago TEXT NOT NULL DEFAULT 'contado', -- contado | credito
+    pagado INTEGER NOT NULL DEFAULT 1,        -- 1 = pagado, 0 = pendiente
+    fecha_pago DATETIME,
+    tasa_pago REAL,
+    monto_pagado_bs REAL,
+    monto_pagado_usd REAL,
     FOREIGN KEY (cliente_id) REFERENCES clientes(id)
   );
 
@@ -82,10 +88,16 @@ db.exec(`
 `);
 
 // Ajustes de columnas para bases existentes
-ensureColumnExists('clientes', 'cedula', 'TEXT');
+ensureColumnExists('clientes', 'cedula', 'TEXT UNIQUE');
 ensureColumnExists('clientes', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
 db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_cedula ON clientes(cedula) WHERE cedula IS NOT NULL').run();
 ensureColumnExists('ventas', 'cliente_cedula', 'TEXT');
+ensureColumnExists('ventas', 'tipo_pago', "TEXT NOT NULL DEFAULT 'contado'");
+ensureColumnExists('ventas', 'pagado', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumnExists('ventas', 'fecha_pago', 'DATETIME');
+ensureColumnExists('ventas', 'tasa_pago', 'REAL');
+ensureColumnExists('ventas', 'monto_pagado_bs', 'REAL');
+ensureColumnExists('ventas', 'monto_pagado_usd', 'REAL');
 
 // Inicializar tasa de dólar si no existe
 const tasaExistente = db.prepare('SELECT value FROM config WHERE key = ?').get('tasa_dolar');
@@ -197,7 +209,7 @@ export function guardarCliente({ cedula, nombre, direccion, telefono }) {
   return db.prepare('SELECT * FROM clientes WHERE id = ?').get(result.lastInsertRowid);
 }
 
-export function crearVenta(cliente, items) {
+export function crearVenta(cliente, items, tipoPago = 'contado') {
   if (!cliente?.cedula) {
     throw new Error('La cédula del cliente es obligatoria');
   }
@@ -207,10 +219,27 @@ export function crearVenta(cliente, items) {
   let totalUsd = 0;
   let totalBs = 0;
   const fechaActual = getCaracasTimestamp();
+  const esCredito = tipoPago === 'credito';
   
   const ventaStmt = db.prepare(`
-    INSERT INTO ventas (cliente_id, cliente_cedula, cliente_nombre, cliente_direccion, cliente_telefono, total_bs, total_usd, tasa_dolar, fecha)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ventas (
+      cliente_id,
+      cliente_cedula,
+      cliente_nombre,
+      cliente_direccion,
+      cliente_telefono,
+      total_bs,
+      total_usd,
+      tasa_dolar,
+      fecha,
+      tipo_pago,
+      pagado,
+      fecha_pago,
+      tasa_pago,
+      monto_pagado_bs,
+      monto_pagado_usd
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   const itemStmt = db.prepare(`
@@ -246,7 +275,13 @@ export function crearVenta(cliente, items) {
       totalBs.toFixed(2),
       totalUsd.toFixed(2),
       tasa,
-      fechaActual
+      fechaActual,
+      esCredito ? 'credito' : 'contado',
+      esCredito ? 0 : 1,
+      esCredito ? null : fechaActual,
+      esCredito ? null : tasa,
+      esCredito ? null : totalBs.toFixed(2),
+      esCredito ? null : totalUsd.toFixed(2)
     );
     
     const ventaId = ventaResult.lastInsertRowid;
@@ -335,6 +370,66 @@ export function obtenerResumenAnual() {
     GROUP BY ano
     ORDER BY ano DESC
   `).all();
+}
+
+export function obtenerDeudoresPendientes() {
+  return db.prepare(`
+    SELECT 
+      COALESCE(c.id, v.cliente_id) as cliente_id,
+      COALESCE(c.cedula, v.cliente_cedula) as cedula,
+      COALESCE(c.nombre, v.cliente_nombre) as nombre,
+      COALESCE(c.telefono, v.cliente_telefono) as telefono,
+      SUM(v.total_usd) as total_usd,
+      SUM(v.total_bs) as total_bs,
+      COUNT(*) as total_ventas
+    FROM ventas v
+    LEFT JOIN clientes c ON v.cliente_id = c.id
+    WHERE v.tipo_pago = 'credito' AND v.pagado = 0
+    GROUP BY cliente_id, cedula, nombre, telefono
+    ORDER BY nombre
+  `).all();
+}
+
+export function pagarDeudasPorCedula(cedula, tasaPago) {
+  if (!cedula) {
+    throw new Error('La cédula es obligatoria');
+  }
+  if (!tasaPago || tasaPago <= 0) {
+    throw new Error('La tasa de pago debe ser mayor a cero');
+  }
+
+  const deudas = db.prepare(
+    `SELECT * FROM ventas WHERE cliente_cedula = ? AND tipo_pago = 'credito' AND pagado = 0`
+  ).all(cedula);
+
+  if (deudas.length === 0) {
+    return { total_usd: 0, total_bs_pago: 0, count: 0 };
+  }
+
+  let totalUsd = 0;
+  for (const v of deudas) {
+    totalUsd += parseFloat(v.total_usd);
+  }
+  const totalBsPago = totalUsd * tasaPago;
+  const fechaPago = getCaracasTimestamp();
+
+  const updateStmt = db.prepare(`
+    UPDATE ventas
+    SET pagado = 1,
+        fecha_pago = ?,
+        tasa_pago = ?,
+        monto_pagado_bs = total_usd * ?,
+        monto_pagado_usd = total_usd
+    WHERE id = ?
+  `);
+
+  db.transaction(() => {
+    for (const v of deudas) {
+      updateStmt.run(fechaPago, tasaPago, tasaPago, v.id);
+    }
+  })();
+
+  return { total_usd: totalUsd, total_bs_pago: totalBsPago, count: deudas.length };
 }
 
 export default db;

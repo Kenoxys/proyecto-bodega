@@ -82,7 +82,17 @@ import Layout from '../layouts/Layout.astro';
       </div>
     </div>
 
-    <div class="flex gap-4 justify-end">
+    <div class="flex flex-col md:flex-row gap-4 justify-end md:items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-700 font-medium">Tipo de operación:</span>
+        <select
+          id="tipo-pago"
+          class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="contado">Pago inmediato</option>
+          <option value="credito">Deudor (queda pendiente)</option>
+        </select>
+      </div>
       <button 
         id="btn-limpiar-factura"
         class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
@@ -247,6 +257,7 @@ import Layout from '../layouts/Layout.astro';
         direccion: formData.get('direccion') || '',
         telefono: formData.get('telefono') || ''
       };
+      const tipoPago = document.getElementById('tipo-pago').value || 'contado';
 
       if (!cliente.cedula) {
         alert('Ingrese la cédula del cliente');
@@ -267,7 +278,7 @@ import Layout from '../layouts/Layout.astro';
         const res = await fetch('/api/ventas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cliente, items: itemsFactura })
+          body: JSON.stringify({ cliente, items: itemsFactura, tipo_pago: tipoPago })
         });
         const data = await res.json();
         if (data.success) {
@@ -353,6 +364,21 @@ import Layout from '../layouts/Layout.astro';
 
       // Mensaje inicial
       setEstadoCliente('Ingrese la cédula para buscar al cliente.', 'info');
+
+      // Si viene desde deudores con parámetros en la URL, precargar
+      const params = new URLSearchParams(window.location.search);
+      const cedulaParam = params.get('cedula');
+      const modo = params.get('modo');
+      if (cedulaParam) {
+        cedulaInput.value = cedulaParam;
+        buscarClientePorCedula();
+      }
+      if (modo === 'deudor') {
+        const tipoPagoSelect = document.getElementById('tipo-pago');
+        if (tipoPagoSelect) {
+          tipoPagoSelect.value = 'credito';
+        }
+      }
     }
   </script>
 </Layout>
